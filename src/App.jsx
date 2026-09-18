@@ -48,7 +48,7 @@ function TodoInput({ onAddTodo }) {
 
 TodoInput.propTypes = { onAddTodo: PropTypes.func.isRequired };
 
-function FilterBar({ filter, searchQuery, onFilterChange, onSearchChange }) {
+function FilterBar({ filter, searchQuery, counts, onFilterChange, onSearchChange }) {
   const filters = [
     { value: 'ALL', label: 'Tất cả' },
     { value: 'ACTIVE', label: 'Đang làm' },
@@ -66,7 +66,8 @@ function FilterBar({ filter, searchQuery, onFilterChange, onSearchChange }) {
             aria-pressed={filter === item.value}
             onClick={() => onFilterChange(item.value)}
           >
-            {item.label}
+            <span>{item.label}</span>
+            <span className="filter-bar__count">{counts[item.value]}</span>
           </button>
         ))}
       </div>
@@ -87,6 +88,7 @@ function FilterBar({ filter, searchQuery, onFilterChange, onSearchChange }) {
 FilterBar.propTypes = {
   filter: PropTypes.string.isRequired,
   searchQuery: PropTypes.string.isRequired,
+  counts: PropTypes.shape({ ALL: PropTypes.number, ACTIVE: PropTypes.number, COMPLETED: PropTypes.number }).isRequired,
   onFilterChange: PropTypes.func.isRequired,
   onSearchChange: PropTypes.func.isRequired,
 };
@@ -152,12 +154,18 @@ TodoList.propTypes = {
 };
 
 function Stats({ total, completed, active, onClearAll }) {
+  const completionRate = total ? Math.round((completed / total) * 100) : 0;
+
   return (
     <footer className="stats">
       <div className="stats__numbers" aria-label="Thống kê công việc">
         <span><strong>{total}</strong> tổng số</span>
         <span><strong>{active}</strong> đang làm</span>
         <span><strong>{completed}</strong> đã xong</span>
+      </div>
+      <div className="stats__progress" aria-label={`Đã hoàn thành ${completionRate}%`}>
+        <div className="stats__progress-label"><span>Tiến độ</span><strong>{completionRate}%</strong></div>
+        <div className="stats__progress-track"><span style={{ width: `${completionRate}%` }} /></div>
       </div>
       <button className="button button--quiet" type="button" onClick={onClearAll} disabled={!total}>
         Xóa tất cả
@@ -176,7 +184,8 @@ Stats.propTypes = {
 function loadTodos() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : [];
+    const parsed = saved ? JSON.parse(saved) : [];
+    return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
     console.error('Lỗi tải LocalStorage:', error);
     return [];
@@ -230,6 +239,8 @@ export default function App() {
     return matchesFilter && matchesSearch;
   });
   const completed = todos.filter((todo) => todo.completed).length;
+  const active = todos.length - completed;
+  const filterCounts = { ALL: todos.length, ACTIVE: active, COMPLETED: completed };
 
   return (
     <main className="app-shell">
@@ -250,11 +261,12 @@ export default function App() {
         <FilterBar
           filter={filter}
           searchQuery={searchQuery}
+          counts={filterCounts}
           onFilterChange={setFilter}
           onSearchChange={setSearchQuery}
         />
         <TodoList todos={filteredTodos} onToggle={handleToggle} onDelete={handleDelete} />
-        <Stats total={todos.length} completed={completed} active={todos.length - completed} onClearAll={handleClearAll} />
+        <Stats total={todos.length} completed={completed} active={active} onClearAll={handleClearAll} />
       </div>
       <p className="app-shell__hint">Mẹo: nhấn Enter để thêm công việc mới</p>
     </main>
